@@ -4,8 +4,8 @@
 
 #define BLOCK_OWNER(index, p, n) ((p * (index + 1) - 1) / n)
 #define BLOCK_LOW(id, p, n) (id * n / p)
-#define BLOCK_HIGH(id, p, n) (BLOCK_LOW(id + 1, p, n) - 1)
-#define BLOCK_SIZE(id, p, n) (BLOCK_LOW(id + 1, p, n) - BLOCK_LOW(id, p, n))
+#define BLOCK_HIGH(id, p, n) (BLOCK_LOW((id + 1), p, n) - 1)
+#define BLOCK_SIZE(id, p, n) (BLOCK_LOW((id + 1), p, n) - BLOCK_LOW(id, p, n))
 #define MIN(a, b) (a < b ? a : b)
 
 void print(int *array, int n);
@@ -79,12 +79,28 @@ int main(int argc, char *argv[])
     }
     free(temp);
     time += MPI_Wtime();
+    int *recv_counts = (int *)malloc(p * sizeof(int)); // element number each process received
+    int *displs = (int *)malloc(p * sizeof(int));      // displs in every process
     MPI_Reduce(&time, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    for (int i = 0; i < p; i++)
+    {
+        recv_counts[i] = n * BLOCK_SIZE(i, p, n);
+        displs[i] = n * BLOCK_LOW(i, p, n);
+    }
+    int *recv_buffer = NULL;
+    if (id == 0)
+    {
+        recv_buffer = (int *)malloc(n * n * sizeof(int)); // buffer to save the receive data
+    }
+    MPI_Gatherv((a + n * BLOCK_LOW(id, p, n)), BLOCK_SIZE(id, p, n) * n, MPI_INT,
+                recv_buffer, recv_counts, displs, MPI_INT,
+                0, MPI_COMM_WORLD);
     if (!id)
     {
         printf("Floyd\nmatrix size: %d\n%dprocess:%6.2f seconds\n", n, p, max_time);
+        printf("result\n");
+        print(recv_buffer, n);
     }
-    printrow(a, BLOCK_LOW(id, p, n), BLOCK_HIGH(id, p, n), n);
     free(a);
     MPI_Finalize();
     return 0;
