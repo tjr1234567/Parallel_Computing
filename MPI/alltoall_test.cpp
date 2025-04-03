@@ -13,10 +13,11 @@ int main(int argc, char **argv)
     int *alltoall_data = new int[size];
 
     // initial local array
-    for (int i = 0; i < size; ++i)
-    {
-        local_data[i] = rank;
-    }
+    // for (int i = 0; i < size; ++i)
+    // {
+    //     local_data[i] = rank;
+    // }
+    local_data[0] = rank * 10 + 1;
 
     // call AlltoAll function
     MPI_Alltoall(local_data, 1, MPI_INT, alltoall_data, 1, MPI_INT, MPI_COMM_WORLD);
