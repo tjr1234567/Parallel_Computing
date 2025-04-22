@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define LL long long
-
+//改进，利用缓存分块，每个块都跑完所有primer，减少缓存读取
 int main(int argc, char *argv[])
 {
     LL count;            /* Local prime count */
@@ -49,14 +49,15 @@ int main(int argc, char *argv[])
     /* Figure out this process's share of the array, as
        well as the integers represented by the first and
        last array elements */
-
-    low_value = start_n + id * (n - start_n + 1) / p; // lowest value in the process
+    //每个进程都计算前根号n，除开之后部分平分
+    low_value = start_n + id * (n - start_n) / p; // lowest value in the process
     if (low_value % 2 == 0)
     {
         low_value += 1;
     }
-    high_value = start_n - 1 + (id + 1) * (n - start_n + 1) / p; // highest value in the process
+    high_value = start_n - 1 + (id + 1) * (n - start_n) / p; // highest value in the process
     size = (high_value - low_value) / 2 + 1;
+    //每个进程都计算的前根号n，同时也是去掉偶数的索引版本
     size0 = (start_n - 4) / 2 + 1; // the range for searching the prime
 
     /* Bail out if all the primes used for sieving are
@@ -77,7 +78,7 @@ int main(int argc, char *argv[])
     }
     index = 0;
     prime = 3;
-
+    //将前根号n进行处理拿到其中的素数
     do
     {
         first = (prime * prime - 3) / 2;
@@ -88,6 +89,7 @@ int main(int argc, char *argv[])
         prime = index * 2 + 3;
     } while (prime * prime < start_n);
     // each process count the prime of 1/p "marked0" array
+    //计算前根号n中素数个数，这项工作也分给所有进程一起计算
     count = 0;
     low0 = id * size0 / p;
     high0 = (id + 1) * size0 / p - 1;
@@ -99,15 +101,22 @@ int main(int argc, char *argv[])
     int cache2_size = 524288;     // 512k
     int cache3_size = 33554432;   // 32768k
     int cache_size = cache3_size; //
+    //在L3缓存中能装多少个int
     int cache_int = cache_size / 4;
 
+    //每个进程块有多少个int
     int B_size = cache_int / p;
+    //进程负责的数需要分给多少个块
     int B_num = size / B_size;
+    //剩下的零头还有多少个数
     int B_remain = size % B_size;
+    //每个进程内进行一次编号，对于一个块将其所有的primer全部过一遍，这样能减少缓存的读取次数
     int B_id = 0;
+    //因为是奇数索引，所以只有一半，必须得*2
     LL B_low_value = 2 * B_id * B_size + low_value;            // lowest value in the
     LL B_high_value = 2 * (B_id + 1) * B_size + low_value - 2; // because the (2*B_id + 1)*B_N + low_value) is odd
     LL B_count;
+    //以一个块为单位进行处理
     marked = (char *)malloc(B_size);
     if (marked == NULL)
     {
@@ -115,8 +124,10 @@ int main(int argc, char *argv[])
         MPI_Finalize();
         exit(1);
     }
+    //遍历所有块
     while (B_id < B_num)
     {
+        //素数从3开始筛
         index = 0;
         prime = 3;
         B_count = 0;
@@ -134,10 +145,11 @@ int main(int argc, char *argv[])
                 first = (first + prime) / 2;
             for (i = first; i < B_size; i += prime)
                 marked[i] = 1;
-
+            //注意此处是只需要在前根号n中找素数
             while (marked0[++index])
                 ;
             prime = index * 2 + 3;
+        //在每个块内标记素数的倍数
         } while (prime * prime <= B_high_value);
         for (i = 0; i < B_size; i++)
         {
@@ -146,10 +158,11 @@ int main(int argc, char *argv[])
         }
         count += B_count;
         B_id++;
+        //因为是奇数索引，所以只有一半，必须得*2，high自然也得-2，因为直接+1算的是后面一个数不包括
         B_low_value = 2 * B_id * B_size + low_value;
         B_high_value = 2 * (B_id + 1) * B_size + low_value - 2; // because the (2*B_id + 1)*B_N + low_value) is odd
-        B_size = (B_high_value - B_low_value) / 2 + 1;
     }
+    //remain计算方式同理
     if (B_remain != 0)
     {
         index = 0;

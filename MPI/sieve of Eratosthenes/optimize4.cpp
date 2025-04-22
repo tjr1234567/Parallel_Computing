@@ -49,11 +49,15 @@ int main(int argc, char *argv[])
     }
     // caculate basic vars about the range of the num which the process responsible to
     n = atoll(argv[1]);
+    //算出根号n
     start_n = (int)sqrt((double)n);
+    //去掉偶数和3的倍数，整体/3
     size0 = start_n / 3; // the range where the process find the var 'prime'
+    //通过索引反退回来数value是否大于根号n，根号n之后的数都平分计算，在那之前的数所有进程都计算
     if (((size0 - 1) * 3 + 5 - (size0 - 1) % 2) > start_n)
         size0--;
     // LL num = n/3 - size0;
+    //偶数和3的倍数都去掉，只剩下三分之一的数，需要计算
     LL num = n / 3; // the length of the array in the process
 
     /* Figure out this process's share of the array, as
@@ -62,13 +66,17 @@ int main(int argc, char *argv[])
 
     // low_index = size0 + id*(num - 1)/p;                                  to remove the 'marked0' part from the main circulation
     // high_value = size0 + (id+1) * (num - 1) / p - 1;                     seem to be feckless in shrink the running time
+    //索引是从0开始，即0 ~ num-1，故此处为 (num - 1) / p
+    //本进程最小的索引
     low_index = id * (num - 1) / p;
     high_index = (id + 1) * (num - 1) / p - 1;
+    //如果是最后一个进程，则high_index为所有数最后一个元素的下标，利用通项反推其数字防止其超过n
     if (id == p - 1)
     { // make sure the value the high_index linked is not out of range
         while ((3 * high_index + 5 - high_index % 2) > n)
             high_index--;
     }
+    //计算本进程含有的数的个数
     size = high_index - low_index + 1;
 
     /* Allocate this process's share of the array. */
@@ -83,24 +91,35 @@ int main(int argc, char *argv[])
     {
         marked0[i] = 0;
     } // initial the marked0
-    if ((size0 - 1) % 2 == 0)
-        high_value0 = (size0 - 1) * 3 + 5; // caculate the high_value0
-    else
-        high_value0 = (size0 - 1) * 3 + 4;
+    //索引是从0开始，故此处也得size0 - 1而不直接是size0
+    high_value0 = (size0 - 1) * 3 + 5 - (size0 - 1) % 2;
+    //排除素数直接从5开始
     index = 0;
     prime = 5;
     do
     {
         r = prime / 3;
         q = prime % 3; // q=1 or 2
+        //划分为6*k + 1 和 6*k - 1两个数列。
+        //3后面的素数也肯定是3*p + q的形式，其中q等于1或2
+        //同时每种情况都有可能对应到6*k + 1 和 6*k - 1两个数列当中去 （6*k - 1对应的是3*index + 5）
+        //以q=1对应到 6k -1的情况为例，其首先得先+4进入到6k - 1队列中，再加n个6表示其为primer的倍数，倍数最小为5
+        //即primer + 4 + 6*n = prime * 5 推出 n = (4*primer - 4) / 6 = (12r + 4 - 4) / 6 = 2r
+        //所以最小从2r开始然后每次累加primer，这个对应的数反推回索引，就是其 减掉5再除3 的商，就是其索引，将该索引对应的mark设置为1，又因为再该数列内，故必须以6的单位加，但如果只+1又不再是primer的倍数，所以必须每次+primer
+        //另外一种就是以q=1对应到6k - 1 （6*k - 1对应的是3*index + 4）
+        //首先已经在其队列，那么就直接加6*n即可，也就是 primer + 6*n = primer * m,m为整数，
+        //而6肯定不会是primer的倍数，故n肯定是primer的倍数，最小等于primer。
+        //反推回索引的时候就是其 减掉4再除3 的商，就是其索引，将该索引对印的mark设置为1
         if (q == 1)
         {
-            // prime + 4 + 6i = (3r + 1)*5 => i = 2r            6k+1 array
+            // 6k-1
+            // prime + 4 + 6i = (3r + 1)*5 => i = 2r            6k-1 array
             for (i = 2 * r; prime + 4 + 6 * i <= high_value0; i += prime)
             {
                 marked0[(prime + 4 + 6 * i - 5) / 3] = 1;
             }
-            // prime + 6i*prime = any integer => i = 1          6k-1 array
+            //6k+1
+            // prime + 6i*prime = any integer => i = 1          6k+1 array
             for (i = 1; prime + prime * i * 6 <= high_value0; i++)
             {
                 marked0[((prime + prime * i * 6) - 4) / 3] = 1;
@@ -140,7 +159,8 @@ int main(int argc, char *argv[])
     LL B_num = size / B_size;    // represent the number of blocks this process
     LL B_remain = size % B_size; // represent the remain unoperated number
     LL B_id = 0;                 // record the current Block id in the process
-    LL B_n = B_size / 10;        // B_n used in initial the "marked" array to elimite the multiple of
+    //除去5的倍数
+    LL B_n = B_size / 10;        // B_n used in initial the "marked" array to elimite the multiple of 5
     LL B_low_index;              // lowest index in the block to cauculate the relative index in "marked"
     LL B_high_index;             // highest index in the block to cauculate the relative index in "marked"
                                  // should be guarantee not above the high_index
@@ -158,19 +178,25 @@ int main(int argc, char *argv[])
     while (B_id < B_num)
     {
         index = 1;
+        //下面的case把5倍数除掉了，直接从7开始删
         prime = 7;
         // caculate the low and high index and their value
+
+        //本进程中本快最小的索引    
         B_low_index = low_index + B_id * B_size;
         B_low_value = 3 * B_low_index + 5 - B_low_index % 2;
+        //当B_low_value大于high_value，则跳出循环
         if (B_low_value > (3 * high_index + 5 - high_index % 2))
             break;
         B_high_index = low_index + (B_id + 1) * B_size - 1;
         B_high_value = 3 * B_high_index + 5 - B_high_index % 2;
+        //当B_high_value大于high_value，就让其等于high_value
         if (B_high_value > 3 * high_index + 5 - high_index % 2)
         {
             B_high_value = 3 * high_index + 5 - high_index % 2;
         }
         // optimize the initial circulation "for (i=0; i<B_size; i++) marked[i] = 1;"
+        //除掉5的倍数的具体操作，此时0标记为非素数
         switch (B_low_index % 10)
         {
         case (0):
@@ -361,13 +387,17 @@ int main(int argc, char *argv[])
             // the detail will be described in the report
             r = prime / 3;
             q = prime % 3;
+            //参考上面，q=1时，会有两种情况，进入6*k-1和进入6*k+1
             if (q == 1)
             {
+                //6*k-1，first是第一个primer的倍数，若是B_low_value比它大，就判断是否B_low_value整除primer
+                //整除且不等于primer则直接标记上B_low_value对应的index为0，即为非素数
                 first = prime + 4 + 12 * r;
                 if (first < B_low_value)
                 {
                     if (B_low_value % prime == 0 && B_low_value != prime)
                         marked[((B_low_value - 5)) / 3 - B_low_index] = 0;
+                    //算到右边那个更大的first
                     t = 6 * prime - (B_low_value - first) % (6 * prime);
                     first = B_low_value + t;
                 }
@@ -375,6 +405,7 @@ int main(int argc, char *argv[])
                 {
                     marked[((first + 6 * j - 5)) / 3 - B_low_index] = 0;
                 }
+                //6*k+1，另外一种情况，但类似
                 first = prime + 6 * prime;
                 if (first < B_low_value)
                 {
@@ -388,6 +419,7 @@ int main(int argc, char *argv[])
                     marked[((first + 6 * j) - 4) / 3 - B_low_index] = 0;
                 }
             }
+            //q=2同样有两种情况
             else
             {
                 first = prime + 2 + 6 * (2 * r + 1);
@@ -430,6 +462,7 @@ int main(int argc, char *argv[])
     }
     // similar to the main circulation
     // seperate the remain part just to avoid some unnecessary branching statements
+    //remain的情况与block的情况类似
     if (B_remain)
     {
         index = 1;

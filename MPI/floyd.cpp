@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     }
     n = atoi(argv[1]);
     min = atoi(argv[2]);
-    max = atoi(argv[3]);
+    max = atoi(argv[3]); 
     a = (int *)malloc(n * n * sizeof(int));
     for (i = 0; i < n; i++)
     {
@@ -59,6 +59,7 @@ int main(int argc, char *argv[])
     temp = (int *)malloc(n * sizeof(int));
     for (k = 0; k < n; k++)
     {
+        //在本行的负责发，不在本行的负责收和计算
         root = BLOCK_OWNER(k, p, n);
         if (root == id)
         {
@@ -68,7 +69,9 @@ int main(int argc, char *argv[])
                 temp[j] = a[offset * n + j];
             }
         }
+        //广播和接收都是走同一条指令
         MPI_Bcast(temp, n, MPI_INT, root, MPI_COMM_WORLD);
+        //n是行数，i也是行数，按行划分
         for (i = 0; i < BLOCK_SIZE(id, p, n); i++)
         {
             for (j = 0; j < n; j++)
